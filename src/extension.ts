@@ -18,156 +18,14 @@ export function activate(context: vscode.ExtensionContext) {
     const provider = new CustomSidebarViewProvider(context.extensionUri);
 
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(CustomSidebarViewProvider.viewType, provider));
-
-    let _statusBarItem: vscode.StatusBarItem;
-    let errorLensEnabled: boolean = true;
-
-    // Use the console to output diagnostic information (console.log) and errors (console.error)
-    // console.log('Visual Studio Code Extension "errorlens" is now active');
-
-    // Commands are defined in the package.json file
-    let disposableEnableErrorLens = vscode.commands.registerCommand("ErrorLens.enable", () => {
-        errorLensEnabled = true;
-
-        const activeTextEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-        if (activeTextEditor) {
-            updateDecorationsForUri(activeTextEditor.document.uri);
-        }
-    });
-
-    context.subscriptions.push(disposableEnableErrorLens);
-
-    let disposableDisableErrorLens = vscode.commands.registerCommand("ErrorLens.disable", () => {
-        errorLensEnabled = false;
-
-        const activeTextEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-        if (activeTextEditor) {
-            updateDecorationsForUri(activeTextEditor.document.uri);
-        }
-    });
-
-    context.subscriptions.push(disposableDisableErrorLens);
-
-    vscode.languages.onDidChangeDiagnostics(
-        (diagnosticChangeEvent) => {
-            onChangedDiagnostics(diagnosticChangeEvent);
-        },
-        null,
-        context.subscriptions
-    );
-
-    // Note: URIs for onDidOpenTextDocument() can contain schemes other than file:// (such as git://)
-    vscode.workspace.onDidOpenTextDocument(
-        (textDocument) => {
-            updateDecorationsForUri(textDocument.uri);
-        },
-        null,
-        context.subscriptions
-    );
-
-    // Update on editor switch.
-    vscode.window.onDidChangeActiveTextEditor(
-        (textEditor) => {
-            if (textEditor === undefined) {
-                return;
-            }
-            updateDecorationsForUri(textEditor.document.uri);
-        },
-        null,
-        context.subscriptions
-    );
-
-    function onChangedDiagnostics(diagnosticChangeEvent: vscode.DiagnosticChangeEvent) {
-        if (!vscode.window) {
-            return;
-        }
-
-        const activeTextEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-        if (!activeTextEditor) {
-            return;
-        }
-
-        // Many URIs can change - we only need to decorate the active text editor
-        for (const uri of diagnosticChangeEvent.uris) {
-            // Only update decorations for the active text editor.
-            if (uri.fsPath === activeTextEditor.document.uri.fsPath) {
-                updateDecorationsForUri(uri);
-                break;
-            }
-        }
-    }
-
-    function updateDecorationsForUri(uriToDecorate: vscode.Uri) {
-        if (!uriToDecorate) {
-            return;
-        }
-
-        // Only process "file://" URIs.
-        if (uriToDecorate.scheme !== "file") {
-            return;
-        }
-
-        if (!vscode.window) {
-            return;
-        }
-
-        const activeTextEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-        if (!activeTextEditor) {
-            return;
-        }
-
-        if (!activeTextEditor.document.uri.fsPath) {
-            return;
-        }
-
-        let numErrors = 0;
-        let numWarnings = 0;
-
-        if (errorLensEnabled) {
-            let aggregatedDiagnostics: any = {};
-            let diagnostic: vscode.Diagnostic;
-
-            // Iterate over each diagnostic that VS Code has reported for this file. For each one, add to
-            // a list of objects, grouping together diagnostics which occur on a single line.
-            for (diagnostic of vscode.languages.getDiagnostics(uriToDecorate)) {
-                let key = "line" + diagnostic.range.start.line;
-
-                if (aggregatedDiagnostics[key]) {
-                    // Already added an object for this key, so augment the arrayDiagnostics[] array.
-                    aggregatedDiagnostics[key].arrayDiagnostics.push(diagnostic);
-                } else {
-                    // Create a new object for this key, specifying the line: and a arrayDiagnostics[] array
-                    aggregatedDiagnostics[key] = {
-                        line: diagnostic.range.start.line,
-                        arrayDiagnostics: [diagnostic],
-                    };
-                }
-
-                switch (diagnostic.severity) {
-                    case 0:
-                        numErrors += 1;
-                        break;
-
-                    case 1:
-                        numWarnings += 1;
-                        break;
-
-                    // Ignore other severities.
-                }
-            }
-        }
-    }
 }
 
 class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = "in-your-face.openview";
 
-    private _view?: vscode.WebviewView;
-
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
     resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext<unknown>, token: vscode.CancellationToken): void | Thenable<void> {
-        this._view = webviewView;
 
         webviewView.webview.options = {
             // Allow scripts in the webview
@@ -195,8 +53,6 @@ class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
 
     // This is doom face 0
     private getHtmlContent0(webview: vscode.Webview): string {
-        const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "main.css"));
-
         const face0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible0.png"));
 
         return getHtml(face0);
@@ -204,8 +60,6 @@ class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
 
     // This is doom face 1
     private getHtmlContent1(webview: vscode.Webview): string {
-        const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "main.css"));
-
         const face1 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible1.png"));
 
         return getHtml(face1);
@@ -213,8 +67,6 @@ class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
 
     // This is doom face 2
     private getHtmlContent2(webview: vscode.Webview): string {
-        const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "main.css"));
-
         const face2 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible2.png"));
 
         return getHtml(face2);
@@ -222,8 +74,6 @@ class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
 
     // This is doom face 3
     private getHtmlContent3(webview: vscode.Webview): string {
-        const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "main.css"));
-
         const face3 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible3.png"));
 
         return getHtml(face3);
