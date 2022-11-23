@@ -1,14 +1,14 @@
 {
-	"name": "in-your-face-incredible",
-	"displayName": "In Your Face",
-	"description": "In Your Face, shows you Incredible 'Ouch Faces' that correlate to the number of errors in your code!",
-	"version": "1.0.0",
-	"publisher": "TTOOWA",
+	"name": "incredibly-uncanny",
+	"displayName": "Incredibly uncanny code (yet another version)",
+	"description": "iykyk",
+	"version": "2.0.0",
+	"publisher": "kubukoz",
 	"homepage": "https://github.com/ttoowa",
 	"license": "MIT",
 	"repository": {
 	  "type": "git",
-	  "url": "https://github.com/ttoowa/InYourFace_incredible"
+	  "url": "https://github.com/kubukoz/InYourFace_incredible"
 	},
 	"engines": {
 	  "vscode": "^1.61.0"
