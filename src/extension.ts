@@ -13,75 +13,53 @@ import * as vscode from "vscode";
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    console.log("Extension activated");
+  const provider = new CustomSidebarViewProvider(context.extensionUri);
 
-    const provider = new CustomSidebarViewProvider(context.extensionUri);
-
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider(CustomSidebarViewProvider.viewType, provider));
+  context.subscriptions.push(vscode.languages.onDidChangeDiagnostics(() => provider.changed()));
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(CustomSidebarViewProvider.viewType, provider));
 }
+
+const FACES = [
+  {minErrors: 0, asset: "incredible0.png"},
+  {minErrors: 1, asset: "incredible1.png"},
+  {minErrors: 5, asset: "incredible2.png"},
+  {minErrors: 10, asset: "incredible3.png"},
+].reverse();
+
+type Face = (typeof FACES)[0];
 
 class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = "in-your-face.openview";
+  public static readonly viewType = "in-your-face.openview";
 
-    constructor(private readonly _extensionUri: vscode.Uri) {}
+  view?: vscode.WebviewView;
 
-    resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext<unknown>, token: vscode.CancellationToken): void | Thenable<void> {
+  constructor(private readonly _extensionUri: vscode.Uri) { }
 
-        webviewView.webview.options = {
-            // Allow scripts in the webview
-            enableScripts: true,
-            localResourceRoots: [this._extensionUri],
-        };
+  changed() {
+    const errorCount = getNumErrors();
+    if (!this.view) { return; }
+    const face = FACES.find(face => errorCount >= face.minErrors)!;
 
-        // default webview will show doom face 0
-        webviewView.webview.html = this.getHtmlContent0(webviewView.webview);
+    this.view.webview.html = this.getHtmlContent(this.view.webview, face);
+  }
 
-        // This is called every second is decides which doom face to show in the webview
-        setInterval(() => {
-            let errors = getNumErrors();
-            if (errors === 0) {
-                webviewView.webview.html = this.getHtmlContent0(webviewView.webview);
-            } else if (errors < 5) {
-                webviewView.webview.html = this.getHtmlContent1(webviewView.webview);
-            } else if (errors < 10) {
-                webviewView.webview.html = this.getHtmlContent2(webviewView.webview);
-            } else {
-                webviewView.webview.html = this.getHtmlContent3(webviewView.webview);
-            }
-        }, 1000);
-    }
+  resolveWebviewView(webviewView: vscode.WebviewView): void | Thenable<void> {
+    this.view = webviewView;
+    //ensurs assets can load
+    webviewView.webview.options = { };
+    this.changed();
+  }
 
-    // This is doom face 0
-    private getHtmlContent0(webview: vscode.Webview): string {
-        const face0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible0.png"));
 
-        return getHtml(face0);
-    }
+  private getHtmlContent(webview: vscode.Webview, face: Face): string {
+    const face0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", face.asset));
 
-    // This is doom face 1
-    private getHtmlContent1(webview: vscode.Webview): string {
-        const face1 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible1.png"));
-
-        return getHtml(face1);
-    }
-
-    // This is doom face 2
-    private getHtmlContent2(webview: vscode.Webview): string {
-        const face2 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible2.png"));
-
-        return getHtml(face2);
-    }
-
-    // This is doom face 3
-    private getHtmlContent3(webview: vscode.Webview): string {
-        const face3 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "incredible3.png"));
-
-        return getHtml(face3);
-    }
+    return getHtml(face0);
+  }
 }
 
-function getHtml(doomFace: any) {
-    return `
+function getHtml(doomFace: unknown) {
+  return `
     <!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -91,7 +69,7 @@ function getHtml(doomFace: any) {
 			<body>
 			<section class="wrapper">
       <img class="doomFaces" src="${doomFace}" alt="" >
-      <h1 id="errorNum">${getNumErrors() + " errors"}</h1>
+      <h1 id="errorNum">${getNumErrors() + " error(s)"}</h1>
 			</section>
       <script>
 
@@ -104,49 +82,16 @@ function getHtml(doomFace: any) {
 
 // function to get the number of errors in the open file
 function getNumErrors(): number {
-    const activeTextEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-    if (!activeTextEditor) {
-        return 0;
-    }
-    const document: vscode.TextDocument = activeTextEditor.document;
+  const activeTextEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
+  if (!activeTextEditor) {
+    return 0;
+  }
+  const document: vscode.TextDocument = activeTextEditor.document;
 
-    let numErrors = 0;
-    let numWarnings = 0;
+  const numErrors =
+    vscode.languages
+      .getDiagnostics(document.uri)
+      .filter(d => d.severity === vscode.DiagnosticSeverity.Error).length;
 
-    let aggregatedDiagnostics: any = {};
-    let diagnostic: vscode.Diagnostic;
-
-    // Iterate over each diagnostic that VS Code has reported for this file. For each one, add to
-    // a list of objects, grouping together diagnostics which occur on a single line.
-    for (diagnostic of vscode.languages.getDiagnostics(document.uri)) {
-        let key = "line" + diagnostic.range.start.line;
-
-        if (aggregatedDiagnostics[key]) {
-            // Already added an object for this key, so augment the arrayDiagnostics[] array.
-            aggregatedDiagnostics[key].arrayDiagnostics.push(diagnostic);
-        } else {
-            // Create a new object for this key, specifying the line: and a arrayDiagnostics[] array
-            aggregatedDiagnostics[key] = {
-                line: diagnostic.range.start.line,
-                arrayDiagnostics: [diagnostic],
-            };
-        }
-
-        switch (diagnostic.severity) {
-            case 0:
-                numErrors += 1;
-                break;
-
-            case 1:
-                numWarnings += 1;
-                break;
-
-            // Ignore other severities.
-        }
-    }
-
-    return numErrors;
+  return numErrors;
 }
-
-// this method is called when your extension is deactivated
-export function deactivate() {}
