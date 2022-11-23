@@ -20,10 +20,16 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 const FACES = [
-  {minErrors: 0, asset: "incredible0.png"},
-  {minErrors: 1, asset: "incredible1.png"},
-  {minErrors: 5, asset: "incredible2.png"},
-  {minErrors: 10, asset: "incredible3.png"},
+  {minErrors: 0, asset: "1.webp", sound: "mr-incredible-uncanny-1.mp3"},
+  {minErrors: 1, asset: "2.webp", sound: "mr-incredible-uncanny-2.mp3"},
+  {minErrors: 5, asset: "3.webp", sound: "mr-incredible-uncanny-3.mp3"},
+  {minErrors: 10, asset: "4.webp", sound: "mr-incredible-uncanny-4.mp3"},
+  {minErrors: 15, asset: "5.webp", sound: "mr-incredible-uncanny-5.mp3"},
+  {minErrors: 20, asset: "6.webp", sound: "mr-incredible-uncanny-6.mp3"},
+  {minErrors: 25, asset: "7.png"/* don't ask */, sound: "mr-incredible-uncanny-7.mp3"},
+  {minErrors: 30, asset: "8.webp", sound: "mr-incredible-uncanny-8.mp3"},
+  {minErrors: 35, asset: "9.webp", sound: "mr-incredible-uncanny-9.mp3"},
+  {minErrors: 40, asset: "10.webp", sound: "mr-incredible-uncanny-10.mp3"},
 ].reverse();
 
 type Face = (typeof FACES)[0];
@@ -32,6 +38,7 @@ class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "in-your-face.openview";
 
   view?: vscode.WebviewView;
+  face: Face = FACES[0];
 
   constructor(private readonly _extensionUri: vscode.Uri) { }
 
@@ -40,25 +47,34 @@ class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
     if (!this.view) { return; }
     const face = FACES.find(face => errorCount >= face.minErrors)!;
 
-    this.view.webview.html = this.getHtmlContent(this.view.webview, face);
+    this.view.webview.html = this.getHtmlContent(this.view.webview, face, this.face);
+    this.face = face;
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView): void | Thenable<void> {
     this.view = webviewView;
     //ensurs assets can load
-    webviewView.webview.options = { };
+    webviewView.webview.options = {
+      enableScripts: true //for audio
+    };
     this.changed();
   }
 
 
-  private getHtmlContent(webview: vscode.Webview, face: Face): string {
-    const face0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", face.asset));
+  private getHtmlContent(webview: vscode.Webview, face: Face, previousFace: Face): string {
+    const face0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "images", face.asset));
+    const sound0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "sounds", face.sound));
 
-    return getHtml(face0);
+    return getHtml(face0, sound0, face.minErrors !== previousFace.minErrors);
   }
 }
 
-function getHtml(doomFace: unknown) {
+function getHtml(asset: vscode.Uri, sound: vscode.Uri, shouldPlay: Boolean) {
+  const maybeAudio = shouldPlay?
+  `<audio autoplay>
+    <source src="${sound}" type="audio/mpeg">
+  </audio>` : "";
+
   return `
     <!DOCTYPE html>
 			<html lang="en">
@@ -68,7 +84,8 @@ function getHtml(doomFace: unknown) {
 
 			<body>
 			<section class="wrapper">
-      <img class="doomFaces" src="${doomFace}" alt="" >
+      <img class="doomFaces" src="${asset}" alt="" >
+      ${maybeAudio}
       <h1 id="errorNum">${getNumErrors() + " error(s)"}</h1>
 			</section>
       <script>
