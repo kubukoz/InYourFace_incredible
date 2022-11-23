@@ -65,12 +65,15 @@ class CustomSidebarViewProvider implements vscode.WebviewViewProvider {
     const face0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "images", face.asset));
     const sound0 = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "sounds", face.sound));
 
-    return getHtml(face0, sound0, face.minErrors !== previousFace.minErrors);
+    const faceChanged = face.minErrors !== previousFace.minErrors;
+    const playSound = faceChanged && vscode.workspace.getConfiguration().get<boolean>("uncanny.sound");
+
+    return getHtml(face0, playSound ? sound0 : undefined);
   }
 }
 
-function getHtml(asset: vscode.Uri, sound: vscode.Uri, shouldPlay: Boolean) {
-  const maybeAudio = shouldPlay?
+function getHtml(asset: vscode.Uri, sound?: vscode.Uri) {
+  const maybeAudio = sound?
   `<audio autoplay>
     <source src="${sound}" type="audio/mpeg">
   </audio>` : "";
